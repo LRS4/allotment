@@ -219,7 +219,7 @@ class CrawlCount(QWidget):
                 self.status_label.setText(f"Status: Scraping {url}...")
                 QApplication.processEvents()  # Update the UI
 
-                timeout = 60
+                timeout = 4
                 headers = {
                     'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36',
                     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
@@ -229,7 +229,6 @@ class CrawlCount(QWidget):
                 }
 
                 response = requests.get(url, headers=headers, timeout=timeout)
-                print(response)
 
                 response.raise_for_status()
                 
