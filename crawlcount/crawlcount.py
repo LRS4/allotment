@@ -14,10 +14,15 @@ from PyQt5.QtWidgets import (
     QPushButton,
     QMessageBox,
     QFileDialog,
+    QCheckBox
 )
 from PyQt5.QtGui import QFont, QIcon
 from PyQt5.QtCore import Qt
 import requests
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.options import Options
+from webdriver_manager.chrome import ChromeDriverManager
 from bs4 import BeautifulSoup
 from collections import Counter, deque
 from openpyxl import Workbook
@@ -65,9 +70,7 @@ class CrawlCount(QWidget):
         self.search_terms_textbox = QTextEdit()
         self.search_terms_textbox.setFont(QFont("Arial", 12))
         search_terms_layout.addWidget(self.search_terms_textbox)
-
         input_layout.addLayout(search_terms_layout)
-
         # Add the horizontal layout to the main layout
         main_layout.addLayout(input_layout)
 
@@ -143,6 +146,12 @@ class CrawlCount(QWidget):
         self.results_textbox.setOpenExternalLinks(True)
         main_layout.addWidget(self.results_textbox)
 
+        # Add checkbox to toggle use Selenium instead of Requests
+        self.checkbox = QCheckBox("Use Selenium for scraping - uses Requests by default")
+        self.checkbox.setToolTip("Slower but more reliable.")
+        self.checkbox.setFont(QFont("Arial", 12))
+        main_layout.addWidget(self.checkbox)
+
         # Set the layout and window properties
         self.setLayout(main_layout)
         self.setWindowTitle("CrawlCount | Scrape links to count search terms")
@@ -210,6 +219,14 @@ class CrawlCount(QWidget):
         self.status_label.setText("Status: Scraping...")
         QApplication.processEvents()
 
+        # Use selenium to get the HTML content
+        chrome_options = Options()
+        chrome_options.add_argument("--headless")  # Run headless Chrome
+        chrome_options.add_argument("--window-size=450,450")
+        service = Service(executable_path=ChromeDriverManager().install())
+
+        driver = webdriver.Chrome(service=service)
+
         for url in urls:
             if url in processed_urls:
                 self.results_textbox.append(f"Skipped duplicate URL: {url}\n")
@@ -219,6 +236,11 @@ class CrawlCount(QWidget):
                 self.status_label.setText(f"Status: Scraping {url}...")
                 QApplication.processEvents()  # Update the UI
 
+                driver.get(url)
+
+                html = driver.page_source
+
+                # Use requests to get the HTML content
                 timeout = 4
                 headers = {
                     'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36',
@@ -228,11 +250,11 @@ class CrawlCount(QWidget):
                     'Connection': 'keep-alive',
                 }
 
-                response = requests.get(url, headers=headers, timeout=timeout)
-
-                response.raise_for_status()
+                # response = requests.get(url, headers=headers, timeout=timeout)
+                # response.raise_for_status()
                 
-                soup = BeautifulSoup(response.text, "html.parser")
+                # Parse the HTML content with BeautifulSoup
+                soup = BeautifulSoup(html, "html.parser") # response.text if requests packege used
                 text = soup.get_text().lower()
 
                 # Count occurrences of each search term
@@ -280,7 +302,6 @@ class CrawlCount(QWidget):
                 self.results_textbox.append(f"Failed to retrieve {url}: HTTPError. {e}\n\n")
                 time.sleep(5)
                 continue
-
 
         # Calculate percentages
         percentage_any_terms = (
@@ -583,6 +604,7 @@ class CrawlCount(QWidget):
             "4. Start deep crawl: Click the 'Start deep crawl' button to start crawling initial URLs then all links found on the initial URLs. This will search within these linked pages as well to 1 level deep.\n\n"
             "5. Upload CSV: Click the 'Upload CSV' button to upload a CSV file with columns 'urls' and 'terms' to populate the input fields.\n\n"
             "6. Download results: Click the 'Download Excel' or 'Download CSV' buttons to save the results. The Excel version contains aggregated summary counts by domain and detailed terms by URL.\n\n"
+            "7. Use Selenium: Tick the checkbox at the bottom to use Selenium which launches a browser to scrape. More reliable and handles problematic sites better but is slower.\n\n"
             "Thanks again for using CrawlCount.\n\n\n"
             "https://www.gnu.org/licenses/gpl-3.0.en.html\n"
             "https://github.com/shedloadofcode/CrawlCount"
